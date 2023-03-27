@@ -12,7 +12,7 @@
 free c: channel.
 
 type host.
-type nonce.
+(*type nonce.*)
 type key.
 free Sa: bitstring [private].
 free Sb: bitstring [private].
@@ -26,27 +26,32 @@ free A, B: host.
 fun encrypt(bitstring, key): bitstring.
 reduc forall m: bitstring, k: key; decrypt(encrypt(m,k),k) = m.
 
-fun encrypt_nonce(nonce, key): bitstring.
-reduc forall m: nonce, k: key; decrypt_nonce(encrypt_nonce(m,k),k) = m.
+fun encrypt_nonce(nat, key): bitstring.
+reduc forall m: nat, k: key; decrypt_nonce(encrypt_nonce(m,k),k) = m.
 
 (* TypeConverter here: *)
+fun ienc(nat, key): bitstring.
+fun idec(bitstring, key): nat
+reduc forall x: nat, y: key; idec(ienc(x+1,y), y) = x.
 
 
 let clientA(kAS:key) =
-  new nA: nonce; 
+  let natural_number = ienc(0, kAS) in
+  let nA= idec(natural_number, kAS) in
+  (*new nA: nonce;*) 
   out(c, (A, B, nA));
   in(c, x: bitstring);
-  let (received_nA: nonce, received_kAB: key, received_hostB: host, received_Ma: bitstring) = decrypt(x, kAS) in
+  let (received_nA: nat, received_kAB: key, received_hostB: host, received_Ma: bitstring) = decrypt(x, kAS) in
   if received_hostB = B then
   if received_nA = nA then
   out(c, received_Ma);
   in(c, z: bitstring);
-  let received_B_nB = decrypt(z, received_kAB) in
-  (*out(c, encrypt(received_B_nB-1, received_kAB));*)
+  let received_B_nB = idec(z, received_kAB) in
+  out(c, ienc(received_B_nB-1, received_kAB));
   out(c, encrypt(Sa, received_kAB)).
 
 let serverS(kAS:key, kBS: key) =
-  in(c, (hostA: host, hostB: host, SnA: nonce));
+  in(c, (hostA: host, hostB: host, SnA: nat));
   new kAB: key;
   let Ma = encrypt((kAB, A), kBS) in
   out(c, encrypt((SnA, kAB, B, Ma), kAS)).
@@ -54,7 +59,9 @@ let serverS(kAS:key, kBS: key) =
 let clientB(kBS:key) = 
   in(c, y: bitstring);
   let (received_A_kAB: key, received_hostA: host) = decrypt(y, kBS) in
-  new nB: nonce;  
+  (*new nB: nonce;*)
+  let natural_number = ienc(0, kAS) in
+  let nB= idec(natural_number, kAS) in
   out(c, encrypt_nonce(nB, received_A_kAB));
   in(c, m: bitstring);
   let nB_modified = decrypt(m, received_A_kAB) in
