@@ -5,14 +5,13 @@
   * A checks that nonce Na matches
 3. A->B: {Kab, a}Kbs
 4. B->A: {Nb}Kab
-5. A->B: {Nb-1}Kab
+5. A->B: {Nb+1}Kab
   * B checks that nonce Nb matches
 *)
 
 free c: channel.
 
 type host.
-type nonce.
 type key.
 free Sa: bitstring [private].
 free Sb: bitstring [private].
@@ -26,27 +25,24 @@ free A, B: host.
 fun encrypt(bitstring, key): bitstring.
 reduc forall m: bitstring, k: key; decrypt(encrypt(m,k),k) = m.
 
-fun encrypt_nonce(nonce, key): bitstring.
-reduc forall m: nonce, k: key; decrypt_nonce(encrypt_nonce(m,k),k) = m.
-
-(* TypeConverter here: *)
-
+fun addition(bitstring, nat): bitstring.
+reduc forall x:bitstring, y:nat; substraction(addition(x,y),y)=x.
 
 let clientA(kAS:key) =
-  new nA: nonce; 
+  new nA: bitstring; 
   out(c, (A, B, nA));
   in(c, x: bitstring);
-  let (received_nA: nonce, received_kAB: key, received_hostB: host, received_Ma: bitstring) = decrypt(x, kAS) in
+  let (received_nA: bitstring, received_kAB: key, received_hostB: host, received_Ma: bitstring) = decrypt(x, kAS) in
   if received_hostB = B then
   if received_nA = nA then
   out(c, received_Ma);
   in(c, z: bitstring);
   let received_B_nB = decrypt(z, received_kAB) in
-  (*out(c, encrypt(received_B_nB-1, received_kAB));*)
+  out(c, encrypt(addition(received_B_nB, 1), received_kAB));
   out(c, encrypt(Sa, received_kAB)).
 
 let serverS(kAS:key, kBS: key) =
-  in(c, (hostA: host, hostB: host, SnA: nonce));
+  in(c, (hostA: host, hostB: host, SnA: bitstring));
   new kAB: key;
   let Ma = encrypt((kAB, A), kBS) in
   out(c, encrypt((SnA, kAB, B, Ma), kAS)).
@@ -54,10 +50,12 @@ let serverS(kAS:key, kBS: key) =
 let clientB(kBS:key) = 
   in(c, y: bitstring);
   let (received_A_kAB: key, received_hostA: host) = decrypt(y, kBS) in
-  new nB: nonce;  
-  out(c, encrypt_nonce(nB, received_A_kAB));
+  new nB: bitstring;  
+  out(c, encrypt(nB, received_A_kAB));
   in(c, m: bitstring);
   let nB_modified = decrypt(m, received_A_kAB) in
+  let nB_modified_unmodified = substraction(nB_modified, 1) in
+  if nB_modified_unmodified = nB then
   out(c, encrypt(Sb, received_A_kAB)).
 
 process
