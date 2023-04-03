@@ -13,19 +13,24 @@ free c: channel.
 
 type host.
 type key.
+type role.
 free kBS: key [private].
 free kAS: key [private].
 
 free A, B: host.
+free initiator, receiver: role.
 
 event A_accept_key(key).
 event A_completes_protocol(key).
 event B_runs_protocol(bitstring).
 event B_accept_key(key).
+event A_assumes_role(role).
+event B_assumes_role(role).
 
 query k: key, x: bitstring; event(A_completes_protocol(k))==>event(B_runs_protocol(x)).
 query k: key; event(A_accept_key(k)) && attacker(k)==>false.
 query k: key; event(B_accept_key(k)) && attacker(k)==>false.
+query r_a: role, r_b: role; event(A_assumes_role(r_a))==>event(B_assumes_role(r_b)).
 
 fun encrypt(bitstring, key): bitstring.
 reduc forall m: bitstring, k: key; decrypt(encrypt(m,k),k) = m.
@@ -35,6 +40,7 @@ reduc forall x:bitstring, y:nat; subtraction(addition(x,y),y)=x.
 
 let clientA(kAS:key) =
   new nA: bitstring; 
+  event A_assumes_role(initiator);
   out(c, (A, B, nA));
   in(c, x: bitstring);
   let (received_nA: bitstring, received_kAB: key, received_hostB: host, received_Ma: bitstring) = decrypt(x, kAS) in
@@ -53,8 +59,9 @@ let serverS(kAS:key, kBS: key) =
   let Ma = encrypt((kAB, A), kBS) in
   out(c, encrypt((SnA, kAB, B, Ma), kAS)).
 
-let clientB(kBS:key) = 
+let clientB(kBS:key) =
   in(c, y: bitstring);
+  event B_assumes_role(receiver);
   let (received_A_kAB: key, received_hostA: host) = decrypt(y, kBS) in
   new nB: bitstring; 
   event B_runs_protocol(nB);
