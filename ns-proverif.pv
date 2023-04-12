@@ -20,13 +20,16 @@ free A, B: host.
 
 event A_accept_key(key).
 event A_completes_protocol(key).
-event B_runs_protocol(bitstring).
+event B_completes_protocol(key).
+event B_runs_protocol(bitstring, key).
+event A_runs_protocol(bitstring).
 event B_accept_key(key).
 
-query k: key, x: bitstring; event(A_completes_protocol(k))==>event(B_runs_protocol(x)).
+query k: key, x: bitstring; event(A_completes_protocol(k))==>event(B_runs_protocol(x, k)).
 query k: key; event(A_accept_key(k)) && attacker(k)==>false.
 query k: key; event(B_accept_key(k)) && attacker(k)==>false.
-query k: key, x: bitstring; inj-event(A_completes_protocol(k))==>event(B_runs_protocol(x)).
+query k: key, x: bitstring; inj-event(A_completes_protocol(k))==>event(B_runs_protocol(x, k)).
+query k: key, x: bitstring; inj-event(B_completes_protocol(k))==>event(A_runs_protocol(x)).
 
 fun encrypt(bitstring, key): bitstring.
 reduc forall m: bitstring, k: key; decrypt(encrypt(m,k),k) = m.
@@ -42,6 +45,7 @@ let clientA(kAS:key) =
   if received_hostB = B then
   if received_nA = nA then
   event A_accept_key(received_kAB);
+  event A_runs_protocol(nA);
   out(c, received_Ma);
   in(c, z: bitstring);
   let received_B_nB = decrypt(z, received_kAB) in
@@ -58,13 +62,14 @@ let clientB(kBS:key) =
   in(c, y: bitstring);
   let (received_A_kAB: key, received_hostA: host) = decrypt(y, kBS) in
   new nB: bitstring; 
-  event B_runs_protocol(nB);
+  event B_runs_protocol(nB, received_A_kAB);
   out(c, encrypt(nB, received_A_kAB));
   in(c, m: bitstring);
   let nB_modified = decrypt(m, received_A_kAB) in
   let nB_modified_unmodified = subtraction(nB_modified, 1) in
   if nB_modified_unmodified = nB then
-  event B_accept_key(received_A_kAB).
+  event B_accept_key(received_A_kAB);
+  event B_completes_protocol(received_A_kAB).
 
 process
   
