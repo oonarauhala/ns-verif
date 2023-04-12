@@ -53,9 +53,8 @@ let clientA(kAS:key) =
   event A_completes_protocol(received_kAB);
   out(c, encrypt(addition(received_B_nB, 1), received_kAB)).
 
-let serverS(kAS:key, kBS: key) =
+let serverS(kAS:key, kBS: key, kAB: key) =
   in(c, (hostA: host, hostB: host, SnA: bitstring));
-  new kAB: key;
   let Ma = encrypt((kAB, A), kBS) in
   out(c, encrypt((SnA, kAB, B, Ma), kAS)).
 
@@ -73,5 +72,6 @@ let clientB(kBS:key) =
   event B_completes_protocol(received_A_kAB).
 
 process
+  new kAB: key;
   
-  ( (!clientA(kAS)) | (!serverS(kAS, kBS)) | (!clientB(kBS)) )
+  ( (!clientA(kAS)) | (!serverS(kAS, kBS, kAB)) | (!clientB(kBS)) | phase 1; out(c, kAB))
