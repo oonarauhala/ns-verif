@@ -74,6 +74,8 @@ let responder(k_res_S:key, ini: host, res: host) =
 
 process
   new k_ini_res: key;
+  new A: host;
+  new B: host;
   
   (
   (!initiator(k_ini_S, A, B)) | (!server(k_ini_S, k_res_S, k_ini_res, A, B)) | (!responder(k_res_S, A, B)
