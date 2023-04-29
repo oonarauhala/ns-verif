@@ -76,6 +76,7 @@ process
   new B: host;
   
   (
-  (!initiator(k_ini_S, A, B)) | (!server(k_ini_S, k_res_S, k_ini_res, A, B)) | (!responder(k_res_S, A, B)
-  | (!initiator(k_ini_S, B, A) | (!server(k_ini_S, k_res_S, k_ini_res, B, A)) | (!responder(k_res_S, B, A))) 
-  ) | phase 1; out(c, k_ini_res) )
+  (!initiator(k_ini_S, A, B)) | (!server(k_ini_S, k_res_S, k_ini_res, A, B)) | (!responder(k_res_S, A, B))
+  | (!initiator(k_ini_S, B, A)) | (!server(k_ini_S, k_res_S, k_ini_res, B, A)) | (!responder(k_res_S, B, A)) 
+  | phase 1; out(c, k_ini_res)
+  )
