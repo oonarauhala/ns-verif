@@ -16,8 +16,6 @@ type key.
 free k_res_S: key [private].
 free k_ini_S: key [private].
 
-free A, B: host.
-
 event ini_accept_key(key).
 event ini_completes_protocol(key).
 event res_completes_protocol(key).
@@ -34,8 +32,8 @@ query k: key, x: bitstring; inj-event(res_completes_protocol(k))==>event(ini_run
 fun encrypt(bitstring, key): bitstring.
 reduc forall m: bitstring, k: key; decrypt(encrypt(m,k),k) = m.
 
-fun addition(bitstring, nat): bitstring.
-reduc forall x:bitstring, y:nat; subtraction(addition(x,y),y)=x.
+fun modify(bitstring): bitstring.
+reduc forall x:bitstring; unmodify(modify(x))=x.
 
 (* ini *)
 let initiator(k_ini_S:key, ini: host, res: host) =
@@ -51,7 +49,7 @@ let initiator(k_ini_S:key, ini: host, res: host) =
   in(c, z: bitstring);
   let received_n_res = decrypt(z, received_k_ini_res) in
   event ini_completes_protocol(received_k_ini_res);
-  out(c, encrypt(addition(received_n_res, 1), received_k_ini_res)).
+  out(c, encrypt(modify(received_n_res), received_k_ini_res)).
 
 let server(k_ini_S:key, k_res_S: key, k_ini_res: key, ini: host, res: host) =
   in(c, (ini: host, res: host, n_ini: bitstring));
@@ -67,7 +65,7 @@ let responder(k_res_S:key, ini: host, res: host) =
   out(c, encrypt(n_res, received_k_ini_res));
   in(c, m: bitstring);
   let n_res_modified = decrypt(m, received_k_ini_res) in
-  let nB_modified_unmodified = subtraction(n_res_modified, 1) in
+  let nB_modified_unmodified = unmodify(n_res_modified) in
   if nB_modified_unmodified = n_res then
   event res_accept_key(received_k_ini_res);
   event res_completes_protocol(received_k_ini_res).
