@@ -17,11 +17,11 @@ free k_res_S: key [private].
 free k_ini_S: key [private].
 
 event ini_accept_key(key).
+event res_accept_key(key).
 event ini_completes_protocol(key).
 event res_completes_protocol(key).
 event res_runs_protocol(bitstring, key).
 event ini_runs_protocol(bitstring).
-event res_accept_key(key).
 
 query k: key, x: bitstring; event(ini_completes_protocol(k))==>event(res_runs_protocol(x, k)).
 query k: key; event(ini_accept_key(k)) && attacker(k)==>false.
@@ -37,8 +37,11 @@ reduc forall x:bitstring; unmodify(modify(x))=x.
 
 (* ini *)
 let initiator(k_ini_S:key, ini: host, res: host) =
+  out(c, (ini));
+  in(c, mJ: bitstring);
+
   new n_ini: bitstring;
-  out(c, (ini, res, n_ini));
+  out(c, (ini, res, n_ini, mJ));
   in(c, x: bitstring);
   let (received_n_ini: bitstring, received_k_ini_res: key, received_res: host, received_msg_for_responder: bitstring) = decrypt(x, k_ini_S) in
   if received_res = res then
@@ -52,14 +55,23 @@ let initiator(k_ini_S:key, ini: host, res: host) =
   out(c, encrypt(modify(received_n_res), received_k_ini_res)).
 
 let server(k_ini_S:key, k_res_S: key, k_ini_res: key, ini: host, res: host) =
-  in(c, (ini: host, res: host, n_ini: bitstring));
-  let msg_for_responder = encrypt((k_ini_res, ini), k_res_S) in
-  out(c, encrypt((n_ini, k_ini_res, res, msg_for_responder), k_ini_S)).
+  in(c, (received_A_ini: host, received_A_res: host, received_n_ini: bitstring, received_A_mJ: bitstring));
+  let (received_B_ini: host, received_B_n_J: bitstring) = decrypt(received_A_mJ, k_res_S) in
+  if received_A_ini = received_B_ini then
+
+  let msg_for_responder = encrypt((k_ini_res, ini, received_B_n_J), k_res_S) in
+  out(c, encrypt((received_n_ini, k_ini_res, res, msg_for_responder), k_ini_S)).
 
 (* res *)
 let responder(k_res_S:key, ini: host, res: host) =
+  in(c, received_ini: host);
+  new n_J: bitstring;
+  out(c, encrypt((received_ini, n_J), k_res_S));
+
   in(c, y: bitstring);
-  let (received_k_ini_res: key, received_ini: host) = decrypt(y, k_res_S) in
+  let (received_k_ini_res: key, received_AS_ini: host, received_n_J: bitstring) = decrypt(y, k_res_S) in
+  if received_n_J = n_J then 
+
   new n_res: bitstring; 
   event res_runs_protocol(n_res, received_k_ini_res);
   out(c, encrypt(n_res, received_k_ini_res));
