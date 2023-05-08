@@ -21,6 +21,7 @@ free A, B: host.
 
 
 event ini_accept_key(key, host, host).
+event res_accept_key(key).
 event ini_completes_protocol(key, host, host).
 event res_completes_protocol(key, host).
 event res_runs_protocol(bitstring, key, host).
