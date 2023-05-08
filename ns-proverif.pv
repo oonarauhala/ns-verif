@@ -15,19 +15,24 @@ type host.
 type key.
 free k_res_S: key [private].
 free k_ini_S: key [private].
+free k_ini_res:key[private].
+free A, B: host.
 
-event ini_accept_key(key).
-event res_accept_key(key).
-event ini_completes_protocol(key).
-event res_completes_protocol(key).
-event res_runs_protocol(bitstring, key).
+
+
+event ini_accept_key(key, host, host).
+event ini_completes_protocol(key, host, host).
+event res_completes_protocol(key, host).
+event res_runs_protocol(bitstring, key, host).
 event ini_runs_protocol(bitstring).
 
-query k: key, x: bitstring; event(ini_completes_protocol(k))==>event(res_runs_protocol(x, k)).
-query k: key; event(ini_accept_key(k)) && attacker(k)==>false.
+query k: key, x: bitstring, i:host, r:host; event(ini_completes_protocol(k,i,r))==>event(res_runs_protocol(x, k,i)).
+query k: key, i: host, r: host; event(ini_accept_key(k,i,r)) && attacker(k)==>false.
 query k: key; event(res_accept_key(k)) && attacker(k)==>false.
-query k: key, x: bitstring; inj-event(ini_completes_protocol(k))==>event(res_runs_protocol(x, k)).
-query k: key, x: bitstring; inj-event(res_completes_protocol(k))==>event(ini_runs_protocol(x)).
+
+    
+query k: key, i: host, r: host; inj-event(res_completes_protocol(k,i))==>inj-event(ini_completes_protocol(k,i,r)).
+query k: key, i: host, r: host; inj-event(ini_completes_protocol(k,i,r))==>inj-event(res_accept_key( k)).
 
 fun encrypt(bitstring, key): bitstring.
 reduc forall m: bitstring, k: key; decrypt(encrypt(m,k),k) = m.
@@ -43,27 +48,31 @@ let initiator(k_ini_S:key, ini: host, res: host) =
   new n_ini: bitstring;
   out(c, (ini, res, n_ini, mJ));
   in(c, x: bitstring);
-  let (received_n_ini: bitstring, received_k_ini_res: key, received_res: host, received_msg_for_responder: bitstring) = decrypt(x, k_ini_S) in
-  if received_res = res then
-  if received_n_ini = n_ini then
-  event ini_accept_key(received_k_ini_res);
+  let (=n_ini, received_k_ini_res: key,=res, received_msg_for_responder: bitstring) = decrypt(x, k_ini_S) in
+
+  event ini_accept_key(received_k_ini_res,ini,res);
   event ini_runs_protocol(n_ini);
+
+(*3*)
   out(c, received_msg_for_responder);
+
+(*5*)
   in(c, z: bitstring);
   let received_n_res = decrypt(z, received_k_ini_res) in
-  event ini_completes_protocol(received_k_ini_res);
+  event ini_completes_protocol(received_k_ini_res, ini, res);
   out(c, encrypt(modify(received_n_res), received_k_ini_res)).
 
 let server(k_ini_S:key, k_res_S: key, k_ini_res: key, ini: host, res: host) =
-  in(c, (received_A_ini: host, received_A_res: host, received_n_ini: bitstring, received_A_mJ: bitstring));
-  let (received_B_ini: host, received_B_n_J: bitstring) = decrypt(received_A_mJ, k_res_S) in
-  if received_A_ini = received_B_ini then
+  in(c, (Sini: host, Sres: host, n_ini: bitstring, A_mJ: bitstring));
+  if Sini=ini && Sres=res then
+  let (received_B_ini: host, received_B_n_J: bitstring) = decrypt(A_mJ, k_res_S) in
+  if Sini = received_B_ini then
 
   let msg_for_responder = encrypt((k_ini_res, ini, received_B_n_J), k_res_S) in
-  out(c, encrypt((received_n_ini, k_ini_res, res, msg_for_responder), k_ini_S)).
+  out(c, encrypt((n_ini, k_ini_res, res, msg_for_responder), k_ini_S)).
 
 (* res *)
-let responder(k_res_S:key, ini: host, res: host) =
+let responder(k_res_S:key, res: host) =
   in(c, received_ini: host);
   new n_J: bitstring;
   out(c, encrypt((received_ini, n_J), k_res_S));
@@ -73,22 +82,24 @@ let responder(k_res_S:key, ini: host, res: host) =
   if received_n_J = n_J then 
 
   new n_res: bitstring; 
-  event res_runs_protocol(n_res, received_k_ini_res);
-  out(c, encrypt(n_res, received_k_ini_res));
+  let E=encrypt(n_res, received_k_ini_res) in
+  event res_runs_protocol(E, received_k_ini_res,received_ini);
+  out(c, E);
+
+(*5res*)
+
   in(c, m: bitstring);
   let n_res_modified = decrypt(m, received_k_ini_res) in
   let nB_modified_unmodified = unmodify(n_res_modified) in
   if nB_modified_unmodified = n_res then
   event res_accept_key(received_k_ini_res);
-  event res_completes_protocol(received_k_ini_res).
+  event res_completes_protocol(received_k_ini_res,received_ini).
 
 process
-  new k_ini_res: key;
+  
   new A: host;
   new B: host;
   
   (
-  (!initiator(k_ini_S, A, B)) | (!server(k_ini_S, k_res_S, k_ini_res, A, B)) | (!responder(k_res_S, A, B))
-  | (!initiator(k_ini_S, B, A)) | (!server(k_ini_S, k_res_S, k_ini_res, B, A)) | (!responder(k_res_S, B, A)) 
-  | phase 1; out(c, k_ini_res)
+  (!initiator(k_ini_S, A, B)) | (!server(k_ini_S, k_res_S, k_ini_res, A, B)) | (!responder(k_res_S, B))  
   )
