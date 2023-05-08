@@ -1,4 +1,4 @@
-(*
+(*  Regular
 1. A->S: A, B, Na
 2. S->A: {Na, Kab, B, {Kab, A}Kbs}Kas
   * A checks that recipient's name natches (B=B)
@@ -6,6 +6,21 @@
 3. A->B: {Kab, a}Kbs
 4. B->A: {Nb}Kab
 5. A->B: {Nb+1}Kab
+  * B checks that nonce Nb matches
+*)
+
+(* Fixed
+1. A->B: A
+2. B->A: {A, J}Kbs
+3. A->AS: A, B, Na, {A, J}Kbs
+  * AS checks that sender matches the ini in identifier
+4. AS->A: {Na, Kab, B, {Kab, A, J}Kbs}Kas
+  * A checks that recipient's name natches (B=B)
+  * A checks that nonce Na matches
+5. A->B: {Kab, A, J}Kbs
+  * B checks that nonce J matches original
+6. B->A: {Nb}Kab
+7. A->B: {Nb+1}Kab
   * B checks that nonce Nb matches
 *)
 
@@ -43,27 +58,29 @@ reduc forall x:bitstring; unmodify(modify(x))=x.
 
 (* ini *)
 let initiator(k_ini_S:key, ini: host, res: host) =
+(* 1 *)
   out(c, (ini));
-  in(c, mJ: bitstring);
 
+(* 3 *)
+  in(c, mJ: bitstring);
   new n_ini: bitstring;
   out(c, (ini, res, n_ini, mJ));
+
+(* 5 *)
   in(c, x: bitstring);
   let (=n_ini, received_k_ini_res: key,=res, received_msg_for_responder: bitstring) = decrypt(x, k_ini_S) in
-
   event ini_accept_key(received_k_ini_res,ini,res);
   event ini_runs_protocol(n_ini);
-
-(*3*)
   out(c, received_msg_for_responder);
 
-(*5*)
+(* 7 *)
   in(c, z: bitstring);
   let received_n_res = decrypt(z, received_k_ini_res) in
   event ini_completes_protocol(received_k_ini_res, ini, res);
   out(c, encrypt(modify(received_n_res), received_k_ini_res)).
 
 let server(k_ini_S:key, k_res_S: key, k_ini_res: key, ini: host, res: host) =
+(* 4 *)
   in(c, (Sini: host, Sres: host, n_ini: bitstring, A_mJ: bitstring));
   if Sini=ini && Sres=res then
   let (received_B_ini: host, received_B_n_J: bitstring) = decrypt(A_mJ, k_res_S) in
@@ -74,21 +91,21 @@ let server(k_ini_S:key, k_res_S: key, k_ini_res: key, ini: host, res: host) =
 
 (* res *)
 let responder(k_res_S:key, res: host) =
+(* 2 *)
   in(c, received_ini: host);
   new n_J: bitstring;
   out(c, encrypt((received_ini, n_J), k_res_S));
 
+(* 6 *)
   in(c, y: bitstring);
   let (received_k_ini_res: key, received_AS_ini: host, received_n_J: bitstring) = decrypt(y, k_res_S) in
   if received_n_J = n_J then 
-
   new n_res: bitstring; 
   let E=encrypt(n_res, received_k_ini_res) in
   event res_runs_protocol(E, received_k_ini_res,received_ini);
   out(c, E);
 
-(*5res*)
-
+(* 7 *)
   in(c, m: bitstring);
   let n_res_modified = decrypt(m, received_k_ini_res) in
   let nB_modified_unmodified = unmodify(n_res_modified) in
