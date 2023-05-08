@@ -1,0 +1,2 @@
+# The symmetric Needham-Scroeder protocol for Proverif
+This repository contains a Proverif implementation of the symmetric Needham-Schroeder key-exchange protocol. This was done for my BSc thesis at University of Helsinki.
