@@ -39,16 +39,18 @@ event ini_accept_key(key, host, host).
 event res_accept_key(key).
 event ini_completes_protocol(key, host, host).
 event res_completes_protocol(key, host).
-event res_runs_protocol(bitstring, key, host).
-event ini_runs_protocol(bitstring).
+    
+    
+event res_runs_protocol(host,bitstring).
+event ini_runs_protocol(host,bitstring).
 
-query k: key, x: bitstring, i:host, r:host; event(ini_completes_protocol(k,i,r))==>event(res_runs_protocol(x, k,i)).
+
 query k: key, i: host, r: host; event(ini_accept_key(k,i,r)) && attacker(k)==>false.
 query k: key; event(res_accept_key(k)) && attacker(k)==>false.
 
+query k: key; inj-event(res_completes_protocol(k,A))==>inj-event(ini_completes_protocol(k,A,B)).
     
-query k: key, i: host, r: host; inj-event(res_completes_protocol(k,i))==>inj-event(ini_completes_protocol(k,i,r)).
-query k: key, i: host, r: host; inj-event(ini_completes_protocol(k,i,r))==>inj-event(res_accept_key( k)).
+query x: bitstring; inj-event(ini_runs_protocol(A,x))==>inj-event(res_runs_protocol(B,x)).
 
 fun encrypt(bitstring, key): bitstring.
 reduc forall m: bitstring, k: key; decrypt(encrypt(m,k),k) = m.
@@ -64,18 +66,20 @@ let initiator(k_ini_S:key, ini: host, res: host) =
 (* 3 *)
   in(c, mJ: bitstring);
   new n_ini: bitstring;
-  out(c, (ini, res, n_ini, mJ));
+  let m2= (ini, res, n_ini, mJ) in
+  out(c, m2);
 
 (* 5 *)
   in(c, x: bitstring);
   let (=n_ini, received_k_ini_res: key,=res, received_msg_for_responder: bitstring) = decrypt(x, k_ini_S) in
   event ini_accept_key(received_k_ini_res,ini,res);
-  event ini_runs_protocol(n_ini);
+ 
   out(c, received_msg_for_responder);
 
 (* 7 *)
   in(c, z: bitstring);
   let received_n_res = decrypt(z, received_k_ini_res) in
+  event ini_runs_protocol(res, (received_msg_for_responder,z));
   event ini_completes_protocol(received_k_ini_res, ini, res);
   out(c, encrypt(modify(received_n_res), received_k_ini_res)).
 
@@ -102,7 +106,7 @@ let responder(k_res_S:key, res: host) =
   if received_n_J = n_J then 
   new n_res: bitstring; 
   let E=encrypt(n_res, received_k_ini_res) in
-  event res_runs_protocol(E, received_k_ini_res,received_ini);
+  event res_runs_protocol(received_ini,(y,E));
   out(c, E);
 
 (* 7 *)
@@ -115,8 +119,8 @@ let responder(k_res_S:key, res: host) =
 
 process
   
-  new A: host;
-  new B: host;
+  new k_ini_S:key;
+  new k_res_S:key;
   
   (
   (!initiator(k_ini_S, A, B)) | (!server(k_ini_S, k_res_S, k_ini_res, A, B)) | (!responder(k_res_S, B))  
